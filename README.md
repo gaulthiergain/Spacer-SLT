@@ -32,7 +32,7 @@ This repository contains the implementation, tooling, benchmarks, and experiment
 
 ## 🛠️ Dependencies
 
-Spacer-Δ depends on the following libraries:
+Spacer-SLT depends on the following libraries:
 
 - [`Lief`](https://pypi.org/project/lief/): Library to instrument executable formats
 - [`pyelftools`](https://pypi.org/project/pyelftools/): Library for analyzing ELF files and DWARF debugging information
