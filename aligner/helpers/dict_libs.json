@@ -1,0 +1,368 @@
+{
+ "common_to_all": [
+  {
+   "addr": "570000",
+   "name": ".intrstack",
+   "occurence": 20
+  },
+  {
+   "addr": "10d000",
+   "name": ".tbss",
+   "occurence": 20
+  },
+  {
+   "addr": "100000",
+   "name": ".text",
+   "occurence": 20
+  },
+  {
+   "addr": "10e000",
+   "name": ".text.rodata.libkvmfcplat",
+   "occurence": 20
+  },
+  {
+   "addr": "113000",
+   "name": ".text.rodata.libkvmpf",
+   "occurence": 20
+  },
+  {
+   "addr": "114000",
+   "name": ".text.rodata.libkvmvirtio",
+   "occurence": 20
+  },
+  {
+   "addr": "117000",
+   "name": ".text.rodata.libkvmvirtionet",
+   "occurence": 20
+  },
+  {
+   "addr": "11a000",
+   "name": ".text.rodata.liblwip",
+   "occurence": 20
+  },
+  {
+   "addr": "14e000",
+   "name": ".text.rodata.libnewlibc",
+   "occurence": 20
+  },
+  {
+   "addr": "1b7000",
+   "name": ".text.rodata.libnewlibglue",
+   "occurence": 20
+  },
+  {
+   "addr": "1c1000",
+   "name": ".text.rodata.libnewlibm",
+   "occurence": 20
+  },
+  {
+   "addr": "1e5000",
+   "name": ".text.rodata.libposix_process",
+   "occurence": 20
+  },
+  {
+   "addr": "1e7000",
+   "name": ".text.rodata.libposix_user",
+   "occurence": 20
+  },
+  {
+   "addr": "1e9000",
+   "name": ".text.rodata.libpthread-embedded",
+   "occurence": 20
+  },
+  {
+   "addr": "1f1000",
+   "name": ".text.rodata.libramfs",
+   "occurence": 20
+  },
+  {
+   "addr": "1f3000",
+   "name": ".text.rodata.libukalloc",
+   "occurence": 20
+  },
+  {
+   "addr": "1f4000",
+   "name": ".text.rodata.libukallocbbuddy",
+   "occurence": 20
+  },
+  {
+   "addr": "1f6000",
+   "name": ".text.rodata.libukargparse",
+   "occurence": 20
+  },
+  {
+   "addr": "1f8000",
+   "name": ".text.rodata.libukboot_main",
+   "occurence": 20
+  },
+  {
+   "addr": "1f9000",
+   "name": ".text.rodata.libukbus",
+   "occurence": 20
+  },
+  {
+   "addr": "1fa000",
+   "name": ".text.rodata.libukdebug",
+   "occurence": 20
+  },
+  {
+   "addr": "1fd000",
+   "name": ".text.rodata.libuklibparam",
+   "occurence": 20
+  },
+  {
+   "addr": "200000",
+   "name": ".text.rodata.libuklock",
+   "occurence": 20
+  },
+  {
+   "addr": "201000",
+   "name": ".text.rodata.libukmmio",
+   "occurence": 20
+  },
+  {
+   "addr": "202000",
+   "name": ".text.rodata.libukmpi",
+   "occurence": 20
+  },
+  {
+   "addr": "203000",
+   "name": ".text.rodata.libuknetdev",
+   "occurence": 20
+  },
+  {
+   "addr": "205000",
+   "name": ".text.rodata.libuksched",
+   "occurence": 20
+  },
+  {
+   "addr": "207000",
+   "name": ".text.rodata.libukschedcoop",
+   "occurence": 20
+  },
+  {
+   "addr": "208000",
+   "name": ".text.rodata.libuksglist",
+   "occurence": 20
+  },
+  {
+   "addr": "20a000",
+   "name": ".text.rodata.libuksignal",
+   "occurence": 20
+  },
+  {
+   "addr": "20c000",
+   "name": ".text.rodata.libukswrand",
+   "occurence": 20
+  },
+  {
+   "addr": "20d000",
+   "name": ".text.rodata.libuktime",
+   "occurence": 20
+  },
+  {
+   "addr": "20f000",
+   "name": ".text.rodata.libuktimeconv",
+   "occurence": 20
+  },
+  {
+   "addr": "210000",
+   "name": ".text.rodata.libvfscore",
+   "occurence": 20
+  },
+  {
+   "addr": "10b000",
+   "name": ".uk_ctortab",
+   "occurence": 20
+  },
+  {
+   "addr": "10b070",
+   "name": ".uk_eventtab",
+   "occurence": 20
+  },
+  {
+   "addr": "10b0a0",
+   "name": ".uk_fs_list",
+   "occurence": 20
+  },
+  {
+   "addr": "10b048",
+   "name": ".uk_inittab",
+   "occurence": 20
+  },
+  {
+   "addr": "10a0c8",
+   "name": ".uk_lib_arg__lib_param",
+   "occurence": 20
+  },
+  {
+   "addr": "10a000",
+   "name": ".uk_thread_inittab",
+   "occurence": 20
+  },
+  {
+   "addr": "10a020",
+   "name": "netdev__param_arg",
+   "occurence": 20
+  },
+  {
+   "addr": "10a068",
+   "name": "vfs__param_arg",
+   "occurence": 20
+  }
+ ],
+ "common_to_subset": [
+  {
+   "addr": "222000",
+   "name": ".text.rodata.libposix_libdl",
+   "occurence": 10
+  },
+  {
+   "addr": "220000",
+   "name": ".text.rodata.libposix_sysinfo",
+   "occurence": 12
+  },
+  {
+   "addr": "221000",
+   "name": ".text.rodata.libukmmap",
+   "occurence": 11
+  }
+ ],
+ "not_common": [
+  {
+   "addr": "52c000",
+   "name": ".bss",
+   "occurence": 20
+  },
+  {
+   "addr": "513000",
+   "name": ".data",
+   "occurence": 20
+  },
+  {
+   "addr": "10c000",
+   "name": ".init_array",
+   "occurence": 1
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appdhcp",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appdns",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appdnsperf",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appftp",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.apphaproxy",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.apphelloworld",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.apphelloworldperf",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appiperf3",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appnginx",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appnginxperf",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appntp",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appproxy",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appscamperubdrmap",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appscamperuspeedtrap",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appscamperutnt",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appsqlitebench",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appsqliteshell",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appsqliteweborf",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appweborf",
+   "occurence": 20
+  },
+  {
+   "addr": "2e1000",
+   "name": ".text.rodata.appzlibperf",
+   "occurence": 20
+  },
+  {
+   "addr": "223000",
+   "name": ".text.rodata.libscamper",
+   "occurence": 6
+  },
+  {
+   "addr": "223000",
+   "name": ".text.rodata.libsqlite",
+   "occurence": 6
+  },
+  {
+   "addr": "1f7000",
+   "name": ".text.rodata.libukboot",
+   "occurence": 20
+  },
+  {
+   "addr": "2e2000",
+   "name": ".text.rodata.libzlib",
+   "occurence": 1
+  }
+ ]
+}

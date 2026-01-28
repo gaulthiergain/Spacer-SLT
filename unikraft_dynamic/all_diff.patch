@@ -1,0 +1,1297 @@
+diff --git a/Makefile b/Makefile
+index e727d3f4..0153d820 100644
+--- a/Makefile
++++ b/Makefile
+@@ -373,6 +373,7 @@ HOSTAS := as
+ endif
+ ifndef HOSTCC
+ HOSTCC := gcc
++#HOSTCC := /usr/local/musl/bin/musl-gcc
+ HOSTCC := $(shell which $(HOSTCC) || type -p $(HOSTCC) || echo gcc)
+ endif
+ HOSTCC_NOCCACHE := $(HOSTCC)
+diff --git a/Makefile.uk b/Makefile.uk
+index c8025cd5..0f0a755d 100644
+--- a/Makefile.uk
++++ b/Makefile.uk
+@@ -88,7 +88,7 @@ M4FLAGS      += -DUK_VERSION=$(UK_VERSION).$(UK_SUBVERSION)
+ # If GCC supports "-no-pie" flag, we will add this flag to link flags to
+ # override "pie" option, because some distributions will set
+ # "--enable-default-pie" by default.
+-COMPFLAGS-$(call gcc_version_ge,6,1)	+= -fno-PIC
++COMPFLAGS-$(call gcc_version_ge,6,1)	+= -fPIC
+ LDFLAGS-$(call gcc_version_ge,6,1)	+= -no-pie
+ ifeq ($(call gcc_version_ge,10,0),y)
+ COMPFLAGS-y += -fhosted -fno-tree-loop-distribute-patterns
+@@ -97,6 +97,6 @@ LDFLAGS-$(CONFIG_OPTIMIZE_LTO) += -flinker-output=nolto-rel
+ endif
+ 
+ ASFLAGS-$(call have_clang)     += -mllvm -asm-macro-max-nesting-depth=1000
+-COMPFLAGS-$(call have_clang)	+= -fno-builtin -fno-PIC
++COMPFLAGS-$(call have_clang)	+= -fno-builtin -fPIC
+ LDFLAGS-$(call have_clang)	+= -no-pie
+ 
+diff --git a/arch/x86/ectx.c b/arch/x86/ectx.c
+index da677731..1a9acec9 100644
+--- a/arch/x86/ectx.c
++++ b/arch/x86/ectx.c
+@@ -54,7 +54,7 @@ static enum x86_save_method ectx_method;
+ static __sz ectx_size;
+ static __sz ectx_align = 0x0;
+ 
+-static void _init_ectx_store(void)
++void _init_ectx_store(void)
+ {
+ 	__u32 eax, ebx, ecx, edx;
+ 
+diff --git a/arch/x86/x86_64/include/uk/asm/ctx.h b/arch/x86/x86_64/include/uk/asm/ctx.h
+index 2cc8d478..7d4ad910 100644
+--- a/arch/x86/x86_64/include/uk/asm/ctx.h
++++ b/arch/x86/x86_64/include/uk/asm/ctx.h
+@@ -49,3 +49,5 @@
+ 		__sp__ &= ~((unsigned long) UKARCH_SP_ALIGN_MASK);	\
+ 		__sp__;							\
+ 	})
++
++void _init_ectx_store(void);
+\ No newline at end of file
+diff --git a/include/uk/ctors.h b/include/uk/ctors.h
+index 247c3cbd..a15a3628 100644
+--- a/include/uk/ctors.h
++++ b/include/uk/ctors.h
+@@ -48,10 +48,10 @@ typedef void (*uk_ctor_func_t)(void);
+  * Function pointer arrays of constructors; provided by
+  * the platform's linker script
+  */
+-extern const uk_ctor_func_t __preinit_array_start[];
+-extern const uk_ctor_func_t __preinit_array_end;
+-extern const uk_ctor_func_t __init_array_start[];
+-extern const uk_ctor_func_t __init_array_end;
++extern const uk_ctor_func_t preinit_array_start[];
++extern const uk_ctor_func_t preinit_array_end;
++extern const uk_ctor_func_t init_array_start[];
++extern const uk_ctor_func_t init_array_end;
+ extern const uk_ctor_func_t uk_ctortab_start[];
+ extern const uk_ctor_func_t uk_ctortab_end;
+ 
+diff --git a/lib/posix-event/epoll.c b/lib/posix-event/epoll.c
+index 6a7b57ad..c1856f08 100644
+--- a/lib/posix-event/epoll.c
++++ b/lib/posix-event/epoll.c
+@@ -375,7 +375,7 @@ int epoll_pwait(int epfd, struct epoll_event *events, int maxevents,
+ }
+ #endif /* UK_LIBC_SYSCALLS */
+ 
+-static int epoll_mount_init(void)
++int epoll_mount_init(void)
+ {
+ 	int ret;
+ 
+diff --git a/lib/posix-event/eventfd.c b/lib/posix-event/eventfd.c
+index 5a7080d9..6b7b16ff 100644
+--- a/lib/posix-event/eventfd.c
++++ b/lib/posix-event/eventfd.c
+@@ -442,7 +442,7 @@ int eventfd(unsigned int initval, int flags)
+ }
+ #endif /* UK_LIBC_SYSCALLS */
+ 
+-static int eventfd_mount_init(void)
++int eventfd_mount_init(void)
+ {
+ 	int ret;
+ 
+diff --git a/lib/posix-event/exportsyms.uk b/lib/posix-event/exportsyms.uk
+index fee65552..7709acb7 100644
+--- a/lib/posix-event/exportsyms.uk
++++ b/lib/posix-event/exportsyms.uk
+@@ -31,3 +31,5 @@ uk_syscall_r_eventfd
+ eventfd2
+ uk_syscall_e_eventfd2
+ uk_syscall_r_eventfd2
++epoll_mount_init
++eventfd_mount_init
+diff --git a/lib/posix-futex/exportsyms.uk b/lib/posix-futex/exportsyms.uk
+index 8fb67295..bf76c548 100644
+--- a/lib/posix-futex/exportsyms.uk
++++ b/lib/posix-futex/exportsyms.uk
+@@ -2,3 +2,4 @@ uk_syscall_e_futex
+ uk_syscall_r_futex
+ uk_syscall_e_set_tid_address
+ uk_syscall_r_set_tid_address
++pfutex_child_cleartid_term
+\ No newline at end of file
+diff --git a/lib/posix-futex/futex.c b/lib/posix-futex/futex.c
+index f8f57964..03d68cb2 100644
+--- a/lib/posix-futex/futex.c
++++ b/lib/posix-futex/futex.c
+@@ -375,7 +375,7 @@ UK_LLSYSCALL_R_DEFINE(pid_t, set_tid_address, pid_t *, tid_ref)
+ }
+ 
+ /* Thread exit handler that clears child TID at the stored reference */
+-static void pfutex_child_cleartid_term(struct uk_thread *child __unused)
++void pfutex_child_cleartid_term(struct uk_thread *child __unused)
+ {
+ 	if (child_tid_clear_ref != NULL) {
+ 		*((pid_t *) child_tid_clear_ref) = 0;
+diff --git a/lib/posix-process/clone.c b/lib/posix-process/clone.c
+index 56a14e77..cdfdade6 100644
+--- a/lib/posix-process/clone.c
++++ b/lib/posix-process/clone.c
+@@ -54,6 +54,8 @@
+ extern const struct uk_posix_clonetab_entry _uk_posix_clonetab_start[];
+ extern const struct uk_posix_clonetab_entry _uk_posix_clonetab_end;
+ 
++#define _packed __attribute__((aligned(8)))
++
+ static __uk_tls struct {
+ 	bool is_cloned;
+ 	__u64 cl_flags;
+@@ -225,7 +227,7 @@ out:
+  *  were created with clone
+  * NOTE: This function is called from child TLS context
+  */
+-static void uk_posix_clonetab_term(struct uk_thread *child)
++void uk_posix_clonetab_term(struct uk_thread *child)
+ {
+ 	struct uk_posix_clonetab_entry *itr;
+ 
+diff --git a/lib/posix-process/exportsyms.uk b/lib/posix-process/exportsyms.uk
+index 4aa5ba2c..d8471e70 100644
+--- a/lib/posix-process/exportsyms.uk
++++ b/lib/posix-process/exportsyms.uk
+@@ -81,3 +81,7 @@ uk_syscall_r_clone
+ uk_syscall_e_clone
+ uk_syscall_r_clone3
+ uk_syscall_e_clone3
++posix_process_init
++posix_thread_init
++posix_thread_fini
++uk_posix_clonetab_term
+diff --git a/lib/posix-process/process.c b/lib/posix-process/process.c
+index a98dac7e..828c8e85 100644
+--- a/lib/posix-process/process.c
++++ b/lib/posix-process/process.c
+@@ -94,6 +94,8 @@ static unsigned long tid_map[UK_BITS_TO_LONGS(TIDMAP_SIZE)] = { [0] = 0x01UL };
+  */
+ static __uk_tls struct posix_thread *pthread_self = NULL;
+ 
++struct posix_thread *p_current = NULL;
++
+ /**
+  * Helpers to find and reserve a `pid_t`
+  */
+@@ -172,8 +174,8 @@ static struct posix_thread *pprocess_create_pthread(
+ 	/* Store reference to pthread with TID */
+ 	tid_thread[tid] = pthread;
+ 
+-	uk_pr_debug("Process PID %d: New thread TID %d\n",
+-		    (int) pprocess->pid, (int) pthread->tid);
++	uk_pr_debug("Process PID %d: New thread TID %d (%p)\n",
++		    (int) pprocess->pid, (int) pthread->tid, pthread_self);
+ 	return pthread;
+ 
+ err_free_tid:
+@@ -280,9 +282,11 @@ int uk_posix_process_create(struct uk_alloc *a,
+ 				 &parent_pprocess->children);
+ 	}
+ 
+-	uk_pr_debug("Process PID %d created (parent PID: %d)\n",
++	uk_pr_debug("Process PID %d created (parent PID: %d) %p\n",
+ 		    (int) pprocess->pid,
+-		    (int) ((pprocess->parent) ? pprocess->parent->pid : 0));
++		    (int) ((pprocess->parent) ? pprocess->parent->pid : 0), pthread_self);
++	p_current = pthread_self;
++	
+ 	return 0;
+ 
+ err_free_pprocess:
+@@ -388,7 +392,7 @@ void uk_posix_process_kill(struct uk_thread *thread)
+ }
+ 
+ #if CONFIG_LIBPOSIX_PROCESS_INIT_PIDS
+-static int posix_process_init(void)
++int posix_process_init(void)
+ {
+ 	/* Create a POSIX process without parent ("init" process) */
+ 	return uk_posix_process_create(uk_alloc_get_default(),
+@@ -401,21 +405,27 @@ uk_late_initcall(posix_process_init);
+ /* Thread initialization: Assign posix thread only if parent is part of a
+  * process
+  */
+-static int posix_thread_init(struct uk_thread *child, struct uk_thread *parent)
++int posix_thread_init(struct uk_thread *child, struct uk_thread *parent)
+ {
+ 	struct posix_thread *parent_pthread = NULL;
+ 	struct posix_thread *pthread;
+ 
++	unsigned long address = (unsigned long) pthread_self;
++	if ( !(address & 0x4) == 0 || address==0x0 )
++	{
++		uk_pr_debug("ALIGN %s p_current: %p - pthread_self: %p\n", __func__, p_current, pthread_self);
++		pthread_self = (void *) p_current;
++	}
++
+ 	if (parent) {
+-		parent_pthread = uk_thread_uktls_var(parent,
+-						     pthread_self);
++		//parent_pthread = uk_thread_uktls_var(parent, pthread_self); //TODO
+ 	}
+ 	if (!parent_pthread) {
+ 		/* parent has no posix thread, do not setup one for the child */
+ 		uk_pr_debug("thread %p (%s): Parent %p (%s) without process context, skipping...\n",
+ 			    child, child->name, parent,
+ 			    parent ? parent->name : "<n/a>");
+-		pthread_self = NULL;
++		//pthread_self = NULL;
+ 		return 0;
+ 	}
+ 
+@@ -435,7 +445,7 @@ static int posix_thread_init(struct uk_thread *child, struct uk_thread *parent)
+ }
+ 
+ /* Thread release: Release TID and posix_thread */
+-static void posix_thread_fini(struct uk_thread *child)
++void posix_thread_fini(struct uk_thread *child)
+ {
+ 	struct posix_process *pprocess;
+ 
+@@ -514,8 +524,20 @@ pid_t ukthread2pid(struct uk_thread *thread)
+ 
+ UK_SYSCALL_R_DEFINE(pid_t, getpid)
+ {
++	
+ 	if (!pthread_self)
+ 		return -ENOTSUP;
++	
++	unsigned long address = (unsigned long) pthread_self;
++	if ( !(address & 0x4) == 0 || pthread_self!=p_current)
++	{
++		uk_pr_debug("ALIGN %s %p - pthread_self: %p\n", __func__, uk_syscall_r_getpid, pthread_self);
++		pthread_self = (void *) p_current;
++	}
++	
++	//pthread_self = (void *) ukarch_tls_tlsp(tls);
++	uk_pr_debug("%s %p - pthread_self: %p\n", __func__, uk_syscall_r_getpid, pthread_self);
++	
+ 
+ 	UK_ASSERT(pthread_self->process);
+ 	return pthread_self->process->pid;
+@@ -525,7 +547,14 @@ UK_SYSCALL_R_DEFINE(pid_t, gettid)
+ {
+ 	if (!pthread_self)
+ 		return -ENOTSUP;
+-
++	
++	unsigned long address = (unsigned long) pthread_self;
++	if ( !(address & 0x4) == 0 || pthread_self!=p_current)
++	{
++		uk_pr_debug("ALIGN %s %p - pthread_self: %p\n", __func__, uk_syscall_r_getpid, pthread_self);
++		pthread_self = (void *) p_current;
++	}
++	
+ 	return pthread_self->tid;
+ }
+ 
+@@ -534,6 +563,13 @@ UK_SYSCALL_R_DEFINE(pid_t, getppid)
+ {
+ 	if (!pthread_self)
+ 		return -ENOTSUP;
++	uk_pr_debug("ALIGN %s %p - pthread_self: %p\n", __func__, uk_syscall_r_getppid, pthread_self);
++	unsigned long address = (unsigned long) pthread_self;
++	if ( !(address & 0x4) == 0 || pthread_self!=p_current)
++	{
++		uk_pr_debug("ALIGN %s %p - pthread_self: %p\n", __func__, uk_syscall_r_getppid, pthread_self);
++		pthread_self = (void *) p_current;
++	}
+ 
+ 	UK_ASSERT(pthread_self->process);
+ 
+diff --git a/lib/posix-socket/driver.c b/lib/posix-socket/driver.c
+index e708986c..50027c4e 100644
+--- a/lib/posix-socket/driver.c
++++ b/lib/posix-socket/driver.c
+@@ -88,8 +88,10 @@ posix_socket_family_init(struct posix_socket_driver *d)
+ 	return rc;
+ }
+ 
+-static int
+-posix_socket_family_lib_init(void)
++extern struct posix_socket_ops lwip_posix_socket_ops;
++#include <stdio.h>
++
++int posix_socket_family_lib_init(void)
+ {
+ 	struct posix_socket_driver *d = posix_socket_driver_list_start;
+ 	unsigned int ret = 0;
+@@ -102,6 +104,15 @@ posix_socket_family_lib_init(void)
+ 		 * that wants to register the family again.
+ 		 */
+ 		UK_ASSERT(posix_socket_driver_get(d->family) == d);
++		if(d->libname == NULL){
++			d->libname = uk_malloc(uk_alloc_get_default(), 10);
++			if(d->libname == NULL){
++				uk_pr_err("Failed to allocate memory for libname\n");
++				return -ENOMEM;
++			}
++			snprintf(d->libname, 10, "liblwip");
++			d->ops = &lwip_posix_socket_ops;
++		}
+ 
+ 		if (posix_socket_family_init(d) >= 0)
+ 			++ret;
+diff --git a/lib/posix-socket/exportsyms.uk b/lib/posix-socket/exportsyms.uk
+index 9679ab4f..1ba1b87d 100644
+--- a/lib/posix-socket/exportsyms.uk
++++ b/lib/posix-socket/exportsyms.uk
+@@ -52,3 +52,5 @@ uk_syscall_r_sendto
+ socketpair
+ uk_syscall_e_socketpair
+ uk_syscall_r_socketpair
++posix_socket_family_lib_init
++posix_socket_mount_init
+diff --git a/lib/posix-socket/include/uk/socket_driver.h b/lib/posix-socket/include/uk/socket_driver.h
+index ad5f5caa..85775f66 100644
+--- a/lib/posix-socket/include/uk/socket_driver.h
++++ b/lib/posix-socket/include/uk/socket_driver.h
+@@ -56,6 +56,8 @@ struct posix_socket_file;
+ 
+ struct eventpoll_cb;
+ 
++int posix_socket_family_lib_init(void);
++
+ /**
+  * The POSIX socket driver defines the operations to be used for the
+  * specified AF family as well as the memory allocator.
+diff --git a/lib/posix-socket/include/uk/socket_vnops.h b/lib/posix-socket/include/uk/socket_vnops.h
+index c4107216..0c0d2897 100644
+--- a/lib/posix-socket/include/uk/socket_vnops.h
++++ b/lib/posix-socket/include/uk/socket_vnops.h
+@@ -42,6 +42,8 @@
+ 
+ struct posix_socket_driver;
+ 
++int posix_socket_mount_init(void);
++
+ /**
+  * Return the socket file structure used by a file descriptor.
+  *
+diff --git a/lib/posix-socket/socket_vnops.c b/lib/posix-socket/socket_vnops.c
+index 9fe5c2bb..e9e511a9 100644
+--- a/lib/posix-socket/socket_vnops.c
++++ b/lib/posix-socket/socket_vnops.c
+@@ -346,7 +346,7 @@ static struct mount posix_socket_mount = {
+ 	.m_op = &posix_socket_vfsops
+ };
+ 
+-static int posix_socket_mount_init(void)
++int posix_socket_mount_init(void)
+ {
+ 	int ret;
+ 
+diff --git a/lib/posix-user/exportsyms.uk b/lib/posix-user/exportsyms.uk
+index 2fe07bfc..a41e2dd8 100644
+--- a/lib/posix-user/exportsyms.uk
++++ b/lib/posix-user/exportsyms.uk
+@@ -74,3 +74,4 @@ uk_syscall_r_capget
+ capset
+ uk_syscall_e_capset
+ uk_syscall_r_capset
++init_posix_user
+diff --git a/lib/posix-user/user.c b/lib/posix-user/user.c
+index 6ac92314..4103f7f9 100644
+--- a/lib/posix-user/user.c
++++ b/lib/posix-user/user.c
+@@ -38,7 +38,7 @@
+ 
+ #include <uk/ctors.h>
+ 
+-static void init_posix_user(void)
++void init_posix_user(void)
+ {
+ 	pu_init_passwds();
+ 	pu_init_groups();
+diff --git a/lib/posix-user/user.h b/lib/posix-user/user.h
+index cb18c32b..327000d7 100644
+--- a/lib/posix-user/user.h
++++ b/lib/posix-user/user.h
+@@ -45,6 +45,8 @@
+ void pu_init_passwds(void);
+ void pu_init_groups(void);
+ 
++void init_posix_user(void);
++
+ static inline char *pu_cpystr(char *src, char *dest)
+ {
+ 	UK_ASSERT(src);
+diff --git a/lib/ramfs/exportsyms.uk b/lib/ramfs/exportsyms.uk
+index c86c3f35..08af14a9 100644
+--- a/lib/ramfs/exportsyms.uk
++++ b/lib/ramfs/exportsyms.uk
+@@ -1 +1 @@
+-none
+\ No newline at end of file
++fs_ramfs
+\ No newline at end of file
+diff --git a/lib/ramfs/ramfs_vfsops.c b/lib/ramfs/ramfs_vfsops.c
+index 15be8ce2..93112b27 100644
+--- a/lib/ramfs/ramfs_vfsops.c
++++ b/lib/ramfs/ramfs_vfsops.c
+@@ -62,7 +62,7 @@ struct vfsops ramfs_vfsops = {
+ 		&ramfs_vnops,      /* vnops */
+ };
+ 
+-static struct vfscore_fs_type fs_ramfs = {
++struct vfscore_fs_type fs_ramfs = {
+ 	.vs_name = "ramfs",
+ 	.vs_init = NULL,
+ 	.vs_op = &ramfs_vfsops,
+diff --git a/lib/ukboot/boot.c b/lib/ukboot/boot.c
+index 836d0456..ff85902f 100644
+--- a/lib/ukboot/boot.c
++++ b/lib/ukboot/boot.c
+@@ -224,6 +224,44 @@ void ukplat_entry_argp(char *arg0, char *argb, __sz argb_len)
+ 	ukplat_entry(argc, argv);
+ }
+ 
++void *tls = NULL;
++
++extern void _init_ectx_store(void);
++#if CONFIG_LIBVFSCORE
++extern void vfscore_init(void);
++extern int fdtable_init(void);
++extern int pipe_mount_init(void);
++extern int vfscore_rootfs(void);
++#endif
++#if CONFIG_LIBPOSIX_USER
++extern void init_posix_user(void);
++#endif
++
++#if CONFIG_LIBPOSIX_SOCKET
++extern int posix_socket_family_lib_init(void);
++extern int posix_socket_mount_init(void);
++#endif
++#if CONFIG_LIBUKSWRAND
++extern int _uk_swrand_init(void);
++#endif
++#if CONFIG_LIBPOSIX_EVENT
++extern int epoll_mount_init(void);
++extern int eventfd_mount_init(void);
++#endif
++#if CONFIG_LIBPOSIX_EVENT
++extern int epoll_mount_init(void);
++extern int eventfd_mount_init(void);
++#endif
++
++extern int posix_process_init(void);
++
++
++extern int uk_bus_lib_init(void);
++extern int liblwip_init(void);
++
++extern int __cpu_indicator_init(void);
++extern void	python_init(void);
++
+ #if CONFIG_LIBPOSIX_ENVIRON
+ extern char **environ;
+ #endif /* CONFIG_LIBPOSIX_ENVIRON */
+@@ -239,7 +277,7 @@ void ukplat_entry(int argc, char *argv[])
+ 	struct uk_alloc *a = NULL;
+ #endif
+ #if !CONFIG_LIBUKBOOT_NOALLOC
+-	void *tls = NULL;
++	//void *tls = NULL;
+ #endif
+ #if CONFIG_LIBUKSCHED
+ 	struct uk_sched *s = NULL;
+@@ -248,12 +286,35 @@ void ukplat_entry(int argc, char *argv[])
+ 	uk_init_func_t *initfn;
+ 	int i;
+ 
+-	uk_pr_info("Unikraft constructor table at %p - %p\n",
+-		   &uk_ctortab_start[0], &uk_ctortab_end);
++	uk_pr_info("Unikraft constructor table at %p - %p\n",	   &uk_ctortab_start[0], &uk_ctortab_end);
++	int k = 0;
+ 	uk_ctortab_foreach(ctorfn, uk_ctortab_start, uk_ctortab_end) {
+-		UK_ASSERT(*ctorfn);
++		if (ctorfn == NULL||*ctorfn==0x0){
++			break;
++		}
+ 		uk_pr_debug("Call constructor: %p())...\n", *ctorfn);
+ 		(*ctorfn)();
++		k++;
++	}
++
++	if(k == 0){
++
++#if CONFIG_LIBUKTEST
++	uk_pr_debug("[DYNAMIC] Call constructor: uktest_myself_testsuite %p\n", _uk_testsuite_uktest_myself_testsuite_case_uktest_test_sanity);
++	_uk_testsuite_uktest_myself_testsuite_case_uktest_test_sanity();
++#endif
++		uk_pr_debug("[DYNAMIC] Call constructor: _init_ectx_store %p\n", _init_ectx_store);
++		_init_ectx_store();
++
++#if CONFIG_LIBVFSCORE
++		uk_pr_debug("[DYNAMIC] Call constructor: vfscore_init %p\n", vfscore_init);
++		vfscore_init();
++#endif
++#if CONFIG_LIBPOSIX_USER
++		uk_pr_debug("[DYNAMIC] Call constructor: init_posix_user %p\n", init_posix_user);
++		init_posix_user();
++#endif
++
+ 	}
+ 
+ #ifdef CONFIG_LIBUKLIBPARAM
+@@ -336,10 +397,13 @@ void ukplat_entry(int argc, char *argv[])
+ 	/**
+ 	 * Run init table
+ 	 */
++	k=0;
+ 	uk_pr_info("Init Table @ %p - %p\n",
+ 		   &uk_inittab_start[0], &uk_inittab_end);
+ 	uk_inittab_foreach(initfn, uk_inittab_start, uk_inittab_end) {
+-		UK_ASSERT(*initfn);
++		if (initfn == NULL||*initfn==0x0){
++			break;
++		}
+ 		uk_pr_debug("Call init function: %p()...\n", *initfn);
+ 		rc = (*initfn)();
+ 		if (rc < 0) {
+@@ -348,6 +412,99 @@ void ukplat_entry(int argc, char *argv[])
+ 			rc = UKPLAT_CRASH;
+ 			goto exit;
+ 		}
++		k++;
++	}
++
++	if(k == 0){
++#if CONFIG_LIBPOSIX_SOCKET
++		uk_pr_debug("[DYNAMIC] Call init: posix_socket_family_lib_init %p\n", posix_socket_family_lib_init);
++		rc = posix_socket_family_lib_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", posix_socket_family_lib_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++#endif
++#if CONFIG_LIBVFSCORE
++		uk_pr_debug("[DYNAMIC] Call init: fdtable_init %p\n", fdtable_init);
++		rc = fdtable_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", fdtable_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++#endif
++#if CONFIG_LIBUKSWRAND
++		uk_pr_debug("[DYNAMIC] Call init: _uk_swrand_init %p\n", _uk_swrand_init);
++		rc = _uk_swrand_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", _uk_swrand_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++#endif
++		uk_pr_debug("[DYNAMIC] Call init: _uk_bus_lib_init %p\n", uk_bus_lib_init);
++		rc = uk_bus_lib_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", uk_bus_lib_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++#if CONFIG_LIBPOSIX_EVENT
++		uk_pr_debug("[DYNAMIC] Call init: epoll_mount_init %p\n", epoll_mount_init);
++		rc = epoll_mount_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", epoll_mount_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++		uk_pr_debug("[DYNAMIC] Call init: eventfd_mount_init %p\n", eventfd_mount_init);
++		rc = eventfd_mount_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", eventfd_mount_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++#endif
++#if CONFIG_LIBPOSIX_SOCKET
++		uk_pr_debug("[DYNAMIC] Call init: posix_socket_mount_init %p\n", posix_socket_mount_init);
++		rc = posix_socket_mount_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", posix_socket_mount_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++#endif
++#if CONFIG_LIBVFSCORE
++		uk_pr_debug("[DYNAMIC] Call init: pipe_mount_init %p\n", pipe_mount_init);
++		rc = pipe_mount_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", pipe_mount_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++		uk_pr_debug("[DYNAMIC] Call init: vfscore_rootfs %p\n", vfscore_rootfs);
++		rc = vfscore_rootfs();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", vfscore_rootfs, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++#endif
++		uk_pr_debug("[DYNAMIC] Call init: liblwip_init %p\n", liblwip_init);
++		rc = liblwip_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", liblwip_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
++		uk_pr_debug("[DYNAMIC] Call init: posix_process_init %p\n", posix_process_init);
++		rc = posix_process_init();
++		if (rc < 0) {
++			uk_pr_err("Init function at %p returned error %d\n", posix_process_init, rc);
++			rc = UKPLAT_CRASH;
++			goto exit;
++		}
+ 	}
+ 
+ #ifdef CONFIG_LIBUKSP
+@@ -366,25 +523,38 @@ void ukplat_entry(int argc, char *argv[])
+ 	 * mimic what a regular user application (e.g., BSD, Linux) would expect
+ 	 * from its OS being initialized.
+ 	 */
+-	uk_pr_info("Pre-init table at %p - %p\n",
+-		   &__preinit_array_start[0], &__preinit_array_end);
++#if 1
++	uk_pr_info("[PI] Pre-init table at %p - %p\n",
++		   &preinit_array_start[0], &preinit_array_end);
+ 	uk_ctortab_foreach(ctorfn,
+-			   __preinit_array_start, __preinit_array_end) {
++			   preinit_array_start, preinit_array_end) {
+ 		if (!*ctorfn)
+ 			continue;
+ 
+-		uk_pr_debug("Call pre-init constructor: %p()...\n", *ctorfn);
++		uk_pr_debug("[PI] Call pre-init constructor: %p()...\n", *ctorfn);
+ 		(*ctorfn)();
+ 	}
+-
+-	uk_pr_info("Constructor table at %p - %p\n",
+-		   &__init_array_start[0], &__init_array_end);
+-	uk_ctortab_foreach(ctorfn, __init_array_start, __init_array_end) {
++#endif 
++#if 1
++	k = 0;
++	uk_pr_info("[IA] Constructor table at %p - %p\n",
++		   &init_array_start[0], &init_array_end);
++	uk_ctortab_foreach(ctorfn, init_array_start, init_array_end) {
+ 		if (!*ctorfn)
+ 			continue;
+ 
+-		uk_pr_debug("Call constructor: %p()...\n", *ctorfn);
++		uk_pr_debug("[IA] Call constructor: %p()...\n", *ctorfn);
+ 		(*ctorfn)();
++		k ++;
++	}
++#endif 
++
++	if (k == 0){
++		uk_pr_debug("[DYNAMIC][IA] Call constructor: __cpu_indicator_init %p\n", __cpu_indicator_init);
++		__cpu_indicator_init();
++
++		uk_pr_debug("[DYNAMIC][IA] Call constructor: python_init %p\n", python_init);
++		python_init();
+ 	}
+ 
+ #if CONFIG_LIBPOSIX_ENVIRON
+diff --git a/lib/ukboot/exportsyms.uk b/lib/ukboot/exportsyms.uk
+index 4bce9274..4343bf53 100644
+--- a/lib/ukboot/exportsyms.uk
++++ b/lib/ukboot/exportsyms.uk
+@@ -2,3 +2,4 @@ ukplat_entry_argp
+ ukplat_entry
+ main
+ uk_version
++tls
+\ No newline at end of file
+diff --git a/lib/ukbus/bus.c b/lib/ukbus/bus.c
+index 311890f2..2feaaba9 100644
+--- a/lib/ukbus/bus.c
++++ b/lib/ukbus/bus.c
+@@ -42,7 +42,7 @@ static int uk_bus_init(struct uk_bus *b, struct uk_alloc *a);
+ static int uk_bus_probe(struct uk_bus *b);
+ static unsigned int uk_bus_init_all(struct uk_alloc *a);
+ static unsigned int uk_bus_probe_all(void);
+-static int uk_bus_lib_init(void);
++int _uk_bus_lib_init(void);
+ 
+ void _uk_bus_register(struct uk_bus *b)
+ {
+@@ -129,7 +129,7 @@ static unsigned int uk_bus_probe_all(void)
+ 	return ret;
+ }
+ 
+-static int uk_bus_lib_init(void)
++int _uk_bus_lib_init(void)
+ {
+ 	uk_pr_info("Initialize bus handlers...\n");
+ 	uk_bus_init_all(uk_alloc_get_default());
+@@ -137,4 +137,4 @@ static int uk_bus_lib_init(void)
+ 	uk_bus_probe_all();
+ 	return 0;
+ }
+-uk_initcall_class_prio(uk_bus_lib_init, UK_BUS_INIT_CLASS, UK_BUS_INIT_PRIO);
++uk_initcall_class_prio(_uk_bus_lib_init, UK_BUS_INIT_CLASS, UK_BUS_INIT_PRIO);
+diff --git a/lib/ukbus/exportsyms.uk b/lib/ukbus/exportsyms.uk
+index b25fa975..94e144cf 100644
+--- a/lib/ukbus/exportsyms.uk
++++ b/lib/ukbus/exportsyms.uk
+@@ -2,3 +2,4 @@ uk_bus_count
+ _uk_bus_register
+ _uk_bus_unregister
+ uk_bus_list
++_uk_bus_lib_init
+diff --git a/lib/uklibparam/libparam.lds.S b/lib/uklibparam/libparam.lds.S
+index 3ba2bb31..c5f1e3f8 100644
+--- a/lib/uklibparam/libparam.lds.S
++++ b/lib/uklibparam/libparam.lds.S
+@@ -9,4 +9,4 @@ SECTIONS {
+ 		PROVIDE(UK_LIBPARAM_PARAMSECTION_ENDSYM = .);
+ 	}
+ }
+-INSERT AFTER .rodata
++INSERT AFTER .uk_posix_clonetab
+diff --git a/lib/uknofault/excpttab.ld b/lib/uknofault/excpttab.ld
+index 50c6b1e0..b83a184c 100644
+--- a/lib/uknofault/excpttab.ld
++++ b/lib/uknofault/excpttab.ld
+@@ -7,4 +7,4 @@ SECTIONS
+ 		PROVIDE(uk_excpttab_end = .);
+ 	}
+ }
+-INSERT AFTER .rodata;
++INSERT AFTER .uk_posix_clonetab;
+diff --git a/lib/uksched/thread.c b/lib/uksched/thread.c
+index f06b675c..4efb4ff4 100644
+--- a/lib/uksched/thread.c
++++ b/lib/uksched/thread.c
+@@ -49,6 +49,11 @@
+ #error CONFIG_LIBUKSCHED_TCB_INIT requires that a TLS contains reserved space for a TCB
+ #endif
+ 
++#if 1
++extern int uk_thread_uktcb_init(struct uk_thread *thread, void *tcb);
++extern void uk_thread_uktcb_fini(struct uk_thread *thread, void *tcb);
++#endif
++
+ extern const struct uk_thread_inittab_entry _uk_thread_inittab_start[];
+ extern const struct uk_thread_inittab_entry _uk_thread_inittab_end;
+ 
+@@ -104,6 +109,11 @@ static int _inittab_call_term(void *argp)
+ 	return 0;
+ }
+ 
++extern int posix_thread_init(struct uk_thread *child, struct uk_thread *parent);
++extern int posix_thread_fini(struct uk_thread *child);
++extern void pfutex_child_cleartid_term(struct uk_thread *child __unused);
++extern void uk_posix_clonetab_term(struct uk_thread *child);
++
+ /** Iterates over registered thread initialization functions */
+ static int _uk_thread_call_inittab(struct uk_thread *child)
+ {
+@@ -113,6 +123,8 @@ static int _uk_thread_call_inittab(struct uk_thread *child)
+ 	struct _inittab_call_term_args term_args;
+ 	int ret = 0;
+ 
++	uk_pr_debug("CALL _uk_thread_call_inittab: %p\n", _uk_thread_call_inittab);
++
+ 	/* Either we run without scheduling or we have support for ectx */
+ 	UK_ASSERT(!parent || parent->flags & UK_THREADF_ECTX);
+ 
+@@ -121,9 +133,22 @@ static int _uk_thread_call_inittab(struct uk_thread *child)
+ 	 */
+ 	init_args.child  = child;
+ 	init_args.parent = parent;
++	int k = 0;
++
++	uk_pr_debug("_uk_thread_call_inittab: %p\n", _uk_thread_call_inittab);
+ 	uk_thread_inittab_foreach(itr) {
+-		if (unlikely(!itr->init))
++		k++;
++
++		uk_pr_debug("itr: %p\n", itr);
++
++		uk_pr_debug("itr->flags: %d\n", itr->flags);
++		uk_pr_debug("posix_thread_init: 0x%p\n",posix_thread_init);
++		uk_pr_debug("posix_thread_fini: 0x%p\n",posix_thread_fini);
++		
++		if (unlikely(!itr->init)){
++			uk_pr_debug("\n!itr->init ->%p\n",itr->init);
+ 			continue;
++		}
+ 		if (unlikely((itr->flags & child->flags) != itr->flags)) {
+ 			uk_pr_debug("uk_thread %p (%s) init cb: Skip %p() due to feature mismatch: %c%c required (has %c%c)\n",
+ 				    child, child->name
+@@ -139,6 +164,24 @@ static int _uk_thread_call_inittab(struct uk_thread *child)
+ 				     ? 'T' : '-');
+ 			continue;
+ 		}
++		
++		else if((unsigned long) itr->init == 0xCAFE||(unsigned long) itr->init ==0xDEAD){
++			uk_pr_debug("\t0xCAFE/0xDEAD ->%p\n",itr->init);
++			itr->init = posix_thread_init;
++			itr->term = posix_thread_fini;
++		}
++		else if((unsigned long) itr->init == 0xDDDD||(unsigned long) itr->init ==0xFFFF){
++			uk_pr_debug("\t0xEEEE/0xDDDD ->%p\n",itr->init);
++			itr->init = pfutex_child_cleartid_term;
++			itr->term = uk_posix_clonetab_term;
++		}else
++		{
++			uk_pr_debug("\tOTHER ->%p\n",itr->init);
++		}
++		
++		
++		uk_pr_debug("\t->(%p) CALL constructor (init): %p\n",itr,	itr->init);
++		uk_pr_debug("\t->(%p) CALL constructor (term): %p\n",itr,	itr->term);
+ 
+ 		/* NOTE: We execute the init function with child's TLS */
+ 		uk_pr_debug("uk_thread %p (%s) init: Call initialization %p()...\n",
+@@ -147,8 +190,10 @@ static int _uk_thread_call_inittab(struct uk_thread *child)
+ 		init_args.init = itr->init;
+ 		ret = ukplat_tlsp_exec(child->uktlsp, _inittab_call_init,
+ 				       &init_args);
+-		if (ret < 0)
++		if (ret < 0){
++			uk_pr_err("ERROR when calling ukplat_tlsp_exec\n");
+ 			goto err;
++		}
+ 	}
+ 	goto out;
+ 
+diff --git a/lib/ukstore/gen_libs.ld.awk b/lib/ukstore/gen_libs.ld.awk
+index b2873e8d..f6c6cdef 100644
+--- a/lib/ukstore/gen_libs.ld.awk
++++ b/lib/ukstore/gen_libs.ld.awk
+@@ -18,6 +18,6 @@ BEGIN {
+ 
+ END {
+ 	print "}"
+-	print "INSERT AFTER .rodata"
++	print "INSERT AFTER .uk_posix_clonetab"
+ 	print ""
+ }
+diff --git a/lib/ukswrand/exportsyms.uk b/lib/ukswrand/exportsyms.uk
+index eb15a25d..bf24a8a4 100644
+--- a/lib/ukswrand/exportsyms.uk
++++ b/lib/ukswrand/exportsyms.uk
+@@ -6,3 +6,4 @@ uk_swrand_init_r
+ uk_swrand_randr_r
+ uk_swrandr_gen_seed32
+ uk_swrand_fill_buffer
++_uk_swrand_init
+\ No newline at end of file
+diff --git a/lib/ukswrand/include/uk/swrand.h b/lib/ukswrand/include/uk/swrand.h
+index 1172e6cb..9ad73416 100644
+--- a/lib/ukswrand/include/uk/swrand.h
++++ b/lib/ukswrand/include/uk/swrand.h
+@@ -47,6 +47,8 @@ extern "C" {
+ 
+ struct uk_swrand;
+ 
++int _uk_swrand_init(void);
++
+ extern struct uk_swrand uk_swrand_def;
+ 
+ void uk_swrand_init_r(struct uk_swrand *r, unsigned int seedc,
+diff --git a/lib/ukswrand/swrand.c b/lib/ukswrand/swrand.c
+index 37af27f7..e8b2fbcc 100644
+--- a/lib/ukswrand/swrand.c
++++ b/lib/ukswrand/swrand.c
+@@ -73,7 +73,7 @@ ssize_t uk_swrand_fill_buffer(void *buf, size_t buflen)
+ 	return buflen;
+ }
+ 
+-static int _uk_swrand_init(void)
++int _uk_swrand_init(void)
+ {
+ 	unsigned int i;
+ #ifdef CONFIG_LIBUKSWRAND_CHACHA
+diff --git a/lib/vfscore/exportsyms.uk b/lib/vfscore/exportsyms.uk
+index c7581edc..258139d9 100644
+--- a/lib/vfscore/exportsyms.uk
++++ b/lib/vfscore/exportsyms.uk
+@@ -286,3 +286,7 @@ __fxstatat
+ __fxstatat64
+ iftovt_tab
+ vttoif_tab
++vfscore_init
++fdtable_init
++pipe_mount_init
++vfscore_rootfs
+\ No newline at end of file
+diff --git a/lib/vfscore/fd.c b/lib/vfscore/fd.c
+index 096fa7ee..24d19a4f 100644
+--- a/lib/vfscore/fd.c
++++ b/lib/vfscore/fd.c
+@@ -207,7 +207,7 @@ exit:
+ }
+ 
+ 
+-static int fdtable_init(void)
++int fdtable_init(void)
+ {
+ 	memset(&fdtable, 0, sizeof(fdtable));
+ 
+diff --git a/lib/vfscore/main.c b/lib/vfscore/main.c
+index 8389640e..4c67cab5 100644
+--- a/lib/vfscore/main.c
++++ b/lib/vfscore/main.c
+@@ -729,7 +729,6 @@ UK_TRACEPOINT(trace_vfs_write, "%d %p 0x%x 0x%x", int, const void *,
+ 	      size_t);
+ UK_TRACEPOINT(trace_vfs_write_ret, "0x%x", ssize_t);
+ UK_TRACEPOINT(trace_vfs_write_err, "%d", int);
+-
+ UK_SYSCALL_R_DEFINE(ssize_t, write, int, fd, const void *, buf, size_t, count)
+ {
+ 	ssize_t bytes;
+@@ -2732,7 +2731,7 @@ UK_SYSCALL_R_DEFINE(int, chroot, const char*, path)
+ }
+ 
+ static struct task _main_task_impl;
+-static void vfscore_init(void)
++void vfscore_init(void)
+ {
+ 	memset(&_main_task_impl, 0, sizeof(_main_task_impl));
+ 	strcpy(_main_task_impl.t_cwd, "/");
+diff --git a/lib/vfscore/mount.c b/lib/vfscore/mount.c
+index b41a23e5..45da7bcf 100644
+--- a/lib/vfscore/mount.c
++++ b/lib/vfscore/mount.c
+@@ -73,6 +73,35 @@ extern const struct vfscore_fs_type *uk_fslist_end;
+ 	     iter < &uk_fslist_end;		\
+ 	     iter++)
+ 
++#include <stdio.h>
++#include <stdint.h>
++
++// Hexdump function
++void hexdump(void *address, size_t size) {
++    unsigned char *ptr = (unsigned char *)address;
++    size_t i, j;
++
++    for (i = 0; i < size; i += 16) {
++        printf("%08lx  ", (uintptr_t)(ptr + i)); // Print memory address
++        for (j = 0; j < 16 && i + j < size; j++) {
++            printf("%02x ", ptr[i + j]); // Print data in hex
++        }
++        
++        // Padding for incomplete lines
++        while (j < 16) {
++            printf("   ");
++            j++;
++        }
++
++        // Print ASCII characters
++        printf(" |");
++        for (j = 0; j < 16 && i + j < size; j++) {
++            unsigned char c = ptr[i + j];
++            printf("%c", (c >= 32 && c <= 126) ? c : '.');
++        }
++        printf("|\n");
++    }
++}
+ /*
+  * Lookup file system.
+  */
+@@ -80,18 +109,34 @@ static const struct vfscore_fs_type *
+ fs_getfs(const char *name)
+ {
+ 	const struct vfscore_fs_type *fs = NULL, **__fs;
+-
+ 	UK_ASSERT(name != NULL);
+-
++	//hexdump(0x7ffff7d18070, 512);
++	//hexdump(0x641290, 512); // <fs_ramfs>
++	//for(unsigned long i = 0; i < 10000000000; i++){}
++	//hexdump(0x7ffff7d04000+0x10170, 32); //txt
++	//hexdump(7ffff7d14000+0x170, 32); //data
++	
++
++	short init_fs = 0;
+ 	for_each_fs(__fs) {
++		//uk_pr_info("*__fs %p\n", *__fs);
+ 		fs = *__fs;
++		//uk_pr_info("fs %p\n", fs);
+ 		if (!fs || !fs->vs_name)
+ 			continue;
+-
+-		if (strncmp(name, fs->vs_name, FSMAXNAMES) == 0)
++		//uk_pr_info("fs->vs_name %s (%p)\n", fs->vs_name, fs->vs_name);
++		if (strncmp(name, fs->vs_name, FSMAXNAMES) == 0){
+ 			return fs;
++		}
++		init_fs++;
+ 	}
+ 
++	if (init_fs == 0){
++		extern const struct vfscore_fs_type fs_ramfs;
++		return &fs_ramfs;
++	}
++	
++
+ 	return NULL;
+ }
+ 
+@@ -123,18 +168,15 @@ UK_SYSCALL_R_DEFINE(int, mount, const char*, dev, const char*, dir,
+ 
+ 	if (!dir || *dir == '\0')
+ 		return -ENOENT;
+-
+ 	/* Find a file system. */
+ 	if (!(fs = fs_getfs(fsname)))
+ 		return -ENODEV;  /* No such file system */
+-
+ 	/* Open device. NULL can be specified as a device. */
+ 	// Allow device_open() to fail, in which case dev is interpreted
+ 	// by the file system mount routine (e.g zfs pools)
+ 	device = 0;
+ 	if (dev && strncmp(dev, "/dev/", 5) == 0)
+ 		device_open(dev + 5, DO_RDWR, &device);
+-
+ 	/* Check if device or directory has already been mounted. */
+ 	// We need to avoid the situation where after we already verified that
+ 	// the mount point is free, but before we actually add it to mount_list,
+diff --git a/lib/vfscore/pipe.c b/lib/vfscore/pipe.c
+index e58dfd01..e7fa41c3 100644
+--- a/lib/vfscore/pipe.c
++++ b/lib/vfscore/pipe.c
+@@ -724,7 +724,7 @@ int mkfifo(const char *path __unused, mode_t mode __unused)
+ }
+ #endif /* UK_LIBC_SYSCALLS */
+ 
+-static int pipe_mount_init(void)
++int pipe_mount_init(void)
+ {
+ 	int ret;
+ 
+diff --git a/lib/vfscore/rootfs.c b/lib/vfscore/rootfs.c
+index 75b90422..c5929955 100644
+--- a/lib/vfscore/rootfs.c
++++ b/lib/vfscore/rootfs.c
+@@ -73,7 +73,7 @@ UK_LIB_PARAM_STR(rootdev);
+ UK_LIB_PARAM_STR(rootopts);
+ UK_LIB_PARAM(rootflags, __u64);
+ 
+-static int vfscore_rootfs(void)
++int vfscore_rootfs(void)
+ {
+ 	/*
+ 	 * Initialization of the root filesystem '/'
+diff --git a/lib/vfscore/vfs.h b/lib/vfscore/vfs.h
+index 208147e3..cf4870af 100644
+--- a/lib/vfscore/vfs.h
++++ b/lib/vfscore/vfs.h
+@@ -715,6 +715,9 @@ int namei_last_nofollow(char *path, struct dentry *ddp, struct dentry **dp);
+  */
+ int lookup(char *path, struct dentry **dpp, char **name);
+ 
++void vfscore_init(void);
++int fdtable_init(void);
++
+ /**
+  * Initializes the vnode buckets of the vnode table.
+  * It is called once (from vfscore_init()) in initialization.
+diff --git a/plat/common/include/uk/plat/common/common.lds.h b/plat/common/include/uk/plat/common/common.lds.h
+index df6dd465..0c002ac6 100644
+--- a/plat/common/include/uk/plat/common/common.lds.h
++++ b/plat/common/include/uk/plat/common/common.lds.h
+@@ -112,6 +112,31 @@
+ 	}								\
+ 	__gcc_except_table_end = .;
+ 
++
++#define PREINIT_SECTIONS						\
++	. = ALIGN(0x8);						\
++	_ctors = .;							\
++	.preinit_array :							\
++	{								\
++	preinit_array_start = .;						\
++		KEEP(*(.preinit_array))			\
++	preinit_array_end = .;         \
++	}								\
++	
++
++#define INIT_SECTIONS						\
++	. = ALIGN(__PAGE_SIZE);						\
++	init_array = .;						\
++	.init_array :							\
++	{							\
++		init_array_start = .; \
++		KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))			\
++		KEEP (*(.init_array .ctors)) \
++		init_array_end = .;			\
++	}								\
++	_ectors = .;					\
++	. = ALIGN(__PAGE_SIZE);			\
++
+ #define CTORTAB_SECTION							\
+ 	. = ALIGN(__PAGE_SIZE);						\
+ 	uk_ctortab_start = .;						\
+diff --git a/plat/kvm/arm/link64.lds.S b/plat/kvm/arm/link64.lds.S
+index cb8ab8f5..04539878 100644
+--- a/plat/kvm/arm/link64.lds.S
++++ b/plat/kvm/arm/link64.lds.S
+@@ -101,17 +101,17 @@ SECTIONS {
+ 	. = ALIGN(0x8);
+ 	_ctors = .;
+ 	.preinit_array : {
+-		PROVIDE_HIDDEN (__preinit_array_start = .);
++		PROVIDE_HIDDEN (preinit_array_start = .);
+ 		KEEP (*(.preinit_array))
+-		PROVIDE_HIDDEN (__preinit_array_end = .);
++		PROVIDE_HIDDEN (preinit_array_end = .);
+ 	}
+ 
+ 	. = ALIGN(0x8);
+ 	.init_array : {
+-		PROVIDE_HIDDEN (__init_array_start = .);
++		PROVIDE_HIDDEN (init_array_start = .);
+ 		KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+ 		KEEP (*(.init_array .ctors))
+-		PROVIDE_HIDDEN (__init_array_end = .);
++		PROVIDE_HIDDEN (init_array_end = .);
+ 	}
+ 	_ectors = .;
+ 	. = ALIGN(__PAGE_SIZE);
+diff --git a/plat/kvm/x86/link64.lds.S b/plat/kvm/x86/link64.lds.S
+index d0eb9938..74136ed0 100644
+--- a/plat/kvm/x86/link64.lds.S
++++ b/plat/kvm/x86/link64.lds.S
+@@ -77,17 +77,17 @@ SECTIONS
+ 	. = ALIGN(0x8);
+ 	_ctors = .;
+ 	.preinit_array : {
+-		PROVIDE_HIDDEN (__preinit_array_start = .);
++		PROVIDE_HIDDEN (preinit_array_start = .);
+ 		KEEP (*(.preinit_array))
+-		PROVIDE_HIDDEN (__preinit_array_end = .);
++		PROVIDE_HIDDEN (preinit_array_end = .);
+ 	}
+ 
+ 	. = ALIGN(0x8);
+ 	.init_array : {
+-		PROVIDE_HIDDEN (__init_array_start = .);
++		PROVIDE_HIDDEN (init_array_start = .);
+ 		KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+ 		KEEP (*(.init_array .ctors))
+-		PROVIDE_HIDDEN (__init_array_end = .);
++		PROVIDE_HIDDEN (init_array_end = .);
+ 	}
+ 	_ectors = .;
+ 
+diff --git a/plat/linuxu/Config.uk b/plat/linuxu/Config.uk
+index 44a03d6a..28dea2f1 100644
+--- a/plat/linuxu/Config.uk
++++ b/plat/linuxu/Config.uk
+@@ -2,7 +2,6 @@ menuconfig PLAT_LINUXU
+        bool "Linux user space"
+        default n
+        depends on !HAVE_SYSCALL && !HAVE_SMP && (!ARCH_ARM_32 || !HAVE_SCHED)
+-       depends on !HAVE_PAGING
+        select LIBUKDEBUG
+        select LIBUKALLOC
+        select LIBNOLIBC if !HAVE_LIBC
+diff --git a/plat/linuxu/Linker.uk b/plat/linuxu/Linker.uk
+index be2563d4..2af5f4fe 100644
+--- a/plat/linuxu/Linker.uk
++++ b/plat/linuxu/Linker.uk
+@@ -1,4 +1,4 @@
+-LINUXU_LDFLAGS-y += -Wl,-e,_liblinuxuplat_start
++LINUXU_LDFLAGS-y += -Wl,-e,_start
+ 
+ ##
+ ## Link image
+diff --git a/plat/linuxu/x86/entry64.S b/plat/linuxu/x86/entry64.S
+index e76b411e..c101ef62 100644
+--- a/plat/linuxu/x86/entry64.S
++++ b/plat/linuxu/x86/entry64.S
+@@ -37,6 +37,8 @@
+ _liblinuxuplat_start:
+ 	xorl %ebp, %ebp		# mark the outmost frame (clear the frame pointer)
+ 
++	popq %rdi
++	popq %rdi
+ 	popq %rdi		# argc as first argument
+ 	movq %rsp, %rsi		# move argv to rsi, the second parameter in x86_64 abi
+ 
+diff --git a/plat/linuxu/x86/link64.lds.S b/plat/linuxu/x86/link64.lds.S
+index c416f84f..6cdb15ac 100644
+--- a/plat/linuxu/x86/link64.lds.S
++++ b/plat/linuxu/x86/link64.lds.S
+@@ -14,6 +14,10 @@ INSERT BEFORE .rodata
+ 
+ SECTIONS
+ {
++	PREINIT_SECTIONS
++	
++	INIT_SECTIONS
++
+ 	TLS_SECTIONS
+ }
+-INSERT BEFORE .data
++INSERT BEFORE .data
+\ No newline at end of file
+diff --git a/plat/xen/arm/link32.lds.S b/plat/xen/arm/link32.lds.S
+index 33666fff..da4bd566 100644
+--- a/plat/xen/arm/link32.lds.S
++++ b/plat/xen/arm/link32.lds.S
+@@ -81,17 +81,17 @@ SECTIONS
+ 	. = ALIGN(0x8);
+ 	_ctors = .;
+ 	.preinit_array : {
+-		PROVIDE_HIDDEN (__preinit_array_start = .);
++		PROVIDE_HIDDEN (preinit_array_start = .);
+ 		KEEP (*(.preinit_array))
+-		PROVIDE_HIDDEN (__preinit_array_end = .);
++		PROVIDE_HIDDEN (preinit_array_end = .);
+ 	}
+ 
+ 	. = ALIGN(0x8);
+ 	.init_array : {
+-		PROVIDE_HIDDEN (__init_array_start = .);
++		PROVIDE_HIDDEN (init_array_start = .);
+ 		KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+ 		KEEP (*(.init_array .ctors))
+-		PROVIDE_HIDDEN (__init_array_end = .);
++		PROVIDE_HIDDEN (init_array_end = .);
+ 	}
+ 	. = ALIGN(__PAGE_SIZE);
+ 	_ectors = .;
+diff --git a/plat/xen/x86/link64.lds.S b/plat/xen/x86/link64.lds.S
+index 2bfda555..62b805bf 100644
+--- a/plat/xen/x86/link64.lds.S
++++ b/plat/xen/x86/link64.lds.S
+@@ -71,17 +71,17 @@ SECTIONS
+ 	. = ALIGN(0x8);
+ 	_ctors = .;
+ 	.preinit_array : {
+-		PROVIDE_HIDDEN (__preinit_array_start = .);
++		PROVIDE_HIDDEN (preinit_array_start = .);
+ 		KEEP (*(.preinit_array))
+-		PROVIDE_HIDDEN (__preinit_array_end = .);
++		PROVIDE_HIDDEN (preinit_array_end = .);
+ 	}
+ 
+ 	. = ALIGN(0x8);
+ 	.init_array : {
+-		PROVIDE_HIDDEN (__init_array_start = .);
++		PROVIDE_HIDDEN (init_array_start = .);
+ 		KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+ 		KEEP (*(.init_array .ctors))
+-		PROVIDE_HIDDEN (__init_array_end = .);
++		PROVIDE_HIDDEN (init_array_end = .);
+ 	}
+ 	. = ALIGN(__PAGE_SIZE);
+ 	_ectors = .;
