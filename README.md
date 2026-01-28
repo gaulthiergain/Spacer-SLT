@@ -30,13 +30,28 @@ This repository contains the implementation, tooling, benchmarks, and experiment
 
 ---
 
+## 🛠️ Dependencies
+
+Spacer-Δ depends on the following libraries:
+
+- [`Lief`](https://pypi.org/project/lief/): Library to instrument executable formats
+- [`pyelftools`](https://pypi.org/project/pyelftools/): Library for analyzing ELF files and DWARF debugging information
+
+You can install them with your system package manager or by using `pip`.
+
+## 🧪 Build and Run
+
 Spacer-SLT is intended as a research prototype. The following steps outline how to set up and run a system using Spacer-SLT:
 
 1. Prepare the `apps/` and `libs/` directories by cloning the corresponding repositories (see `apps.md` and `libs.md`).
 2. Compile the unikernels using the `make` command.
 3. Use the aligner tool to have aligned unikernels with the following command: `./runner.sh --align`  (use the prefix `--use_aslr` to enable aslr)
-4. Run the helper tools to prepare Spacer-SLT: `./runner.sh --minifier --extractor --dump_sec` These tools can be executed independently and in different orders. If the extractor is used, ensure that `/dev/shm` with the extracted libraries. Use `--use_aslr` to enable aslr.
-5. Go to the `firecracker` folder to build the custom loader by using the following command: `devtool build --debug && cp "build/cargo_target/x86_64-unknown-linux-musl/debug/firecracker" "firecracker"` (replace by `--debug` by `--release` for production binaries).
+4. Run the helper tools to prepare Spacer-SLT: `./runner.sh --minifier --extractor --dump_sec` These tools can be executed independently and in different orders. If the extractor is used, ensure that `/dev/shm` is populated with the extracted libraries. Use `--use_aslr` to enable aslr.
+5. Go to the `firecracker` folder to build the custom loader by using the following command: 
+
+```sh
+devtool build --debug && cp "build/cargo_target/x86_64-unknown-linux-musl/debug/firecracker" "firecracker" #replace `--debug` by `--release` for production binaries.
+```
 6. Generate a configuration file (`uk_config.json`) that will be used by firecracker. For instance, the configuration file for `helloworld`:
 
 ```json
@@ -58,9 +73,9 @@ Spacer-SLT is intended as a research prototype. The following steps outline how 
 
 ---
 
-## Research Context
+## 🔬 Research Context
 
-Spacer-SLT is part of a broader investigation into memory efficiency and consolidation in unikernel-based systems and was published into a paper presented at SOCC'25. If you use this code for academic work, or use Spacer-SLT, please cite the corresponding publication:
+Spacer-SLT is part of a broader investigation into memory efficiency and consolidation in unikernel-based systems and was published into a paper presented at [SoCC'25](https://acmsocc.org/2025/)). If you use this code for academic work, or use Spacer-SLT, please cite the corresponding publication:
 
 ```bibtex
 @inproceedings{gain2025socc,
@@ -81,6 +96,8 @@ Spacer-SLT is part of a broader investigation into memory efficiency and consoli
 }
 ```
 
-## Disclaimer
+## 🤝 License and Contributions
 
-This repository contains research code and experimental modifications to virtualization and unikernel components. It is not production use but more like prototyping and research.
+This project is licensed under the BSD 3-Clause License. See the LICENSE file for details.
+
+Contributions, feedback, and suggestions are welcome. Feel free to open an issue or submit a pull request.
